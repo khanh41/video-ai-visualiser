@@ -7,3 +7,19 @@ services:
       - ./triton/model_repository:/models
     network_mode: host
     command: tritonserver --model-repository=/models
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: ${FASTAPI_ENV:-development}
+    shm_size: 4gb
+    restart: always
+    ports:
+      - "8088:8088"
+    env_file:
+      - .env
+    environment:
+      - TRITON_SERVER_URL=tritonserver:8001
+    depends_on:
+      - tritonserver
