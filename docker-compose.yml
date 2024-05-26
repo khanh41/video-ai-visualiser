@@ -1,0 +1,9 @@
+version: '3.8'
+
+services:
+  tritonserver:
+    image: nvcr.io/nvidia/tritonserver:24.05-py3
+    volumes:
+      - ./triton/model_repository:/models
+    network_mode: host
+    command: tritonserver --model-repository=/models

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -e
+set -x
+
+isort --force-single-line-imports app
+autoflake --recursive --remove-all-unused-imports --remove-unused-variables --in-place app
+black --line-length 120 --exclude="venv/|alembic/|\.venv/" .
+isort --combine-as --combine-straight-imports app
