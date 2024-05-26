@@ -1,20 +1,23 @@
 """Chat route."""
-import logging
 
 from fastapi import APIRouter, File
 from fastapi import UploadFile
+from loguru import logger
 
 from app.api.helpers.utils import save_and_split_video
 from app.api.responses.base import BaseResponse
+from app.api.responses.visualizer_response import ListLabelDetectionResponse, LabelDetectionResponse
 from app.api.services.visualizer_service import VisualizerService
-
-logger = logging.getLogger(__name__)
 
 router = APIRouter()
 visualizer_service = VisualizerService()
 
 
-@router.post("/label-detection", response_description="Detect label from video file", response_model=BaseResponse)
+@router.post(
+    "/label-detection",
+    response_description="Detect label from video file",
+    response_model=BaseResponse[ListLabelDetectionResponse],
+)
 async def detect_label_from_video_file(video_file: UploadFile = File(...)):
     """Detect label from video file."""
     # Check if the video file is valid
@@ -27,15 +30,18 @@ async def detect_label_from_video_file(video_file: UploadFile = File(...)):
         )
 
     # Split the video into segments using ffmpeg
-    split_paths = await save_and_split_video(video_file)
-    for split_path in split_paths:
-        visualizer_service.detect_label_from_video(split_path)
+    segment_time = 120
+    split_paths = await save_and_split_video(video_file, segment_time=segment_time)
 
     # Detect label from video file
+    detections: list[LabelDetectionResponse] = []
+    for index, split_path in enumerate(split_paths):
+        detections.extend(visualizer_service.detect_label_from_video(split_path, segment_time * index))
+        logger.info(f"Detected labels: {detections}")
 
     return BaseResponse(
         success=True,
         status_code=200,
         message="Label detected",
-        data=None,
+        data=ListLabelDetectionResponse(detections=detections),
     )

@@ -1,6 +1,5 @@
 """Utils."""
 import functools
-import logging
 import os
 import subprocess
 import time
@@ -9,8 +8,8 @@ from typing import Any, Callable, TypeVar
 
 import aiofiles
 from fastapi import UploadFile, HTTPException
+from loguru import logger
 
-logger = logging.getLogger(__name__)
 F = TypeVar("F", bound=Callable[..., Any])
 
 
@@ -30,7 +29,7 @@ def calculate_time(func: F) -> F:
 
 
 @calculate_time
-async def save_and_split_video(video_file: UploadFile, segment_time: int = 600):
+async def save_and_split_video(video_file: UploadFile, segment_time: int = 120):
     """Split the video into segments using ffmpeg."""
     # Save the uploaded video file to a temporary location
     temp_dir = "/tmp"

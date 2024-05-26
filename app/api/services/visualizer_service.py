@@ -1,15 +1,14 @@
 """Visualizer Service."""
-import logging
 from collections import defaultdict
 
 import cv2
 import numpy as np
+from loguru import logger
 from ultralytics import YOLO
 
 from app.api.helpers.constants import YOLOV8_CLASSES
+from app.api.responses.visualizer_response import LabelDetectionResponse
 from app.core.config import TRITON_SERVER_URL
-
-logger = logging.getLogger(__name__)
 
 
 class VisualizerService:
@@ -19,11 +18,11 @@ class VisualizerService:
         """Initialize Visualizer Service."""
         # self.triton_client = InferenceServerClient(TRITON_SERVER_URL)
 
-    def detect_label_from_video(self, video_path: str):
+    def detect_label_from_video(self, video_path: str, initial_time: float) -> list[LabelDetectionResponse]:
         """Detect Label from Video."""
         video = cv2.VideoCapture(video_path)
         client = YOLO(f"grpc://{TRITON_SERVER_URL}/label_detection", task="detect")
-        class_time_map = defaultdict(list)
+        class_time_map: dict[str, list[LabelDetectionResponse]] = defaultdict(list)
         while True:
             ret, frame = video.read()
             if not ret:
@@ -35,22 +34,33 @@ class VisualizerService:
 
             # get video current time
             current_time = video.get(cv2.CAP_PROP_POS_MSEC) / 1000
+            current_time += initial_time
 
             # add current time to class time map and merge if the previous time to current time is less than 10 seconds
             for class_name in classes:
-                if len(class_time_map[class_name]) > 0 and class_time_map[class_name][-1] - current_time < 10:
-                    class_time_map[class_name][-1] = current_time
+                if len(class_time_map[class_name]) > 0 and class_time_map[class_name][-1].end_time - current_time < 10:
+                    class_time_map[class_name][-1].end_time = current_time
                 else:
-                    class_time_map[class_name].append(current_time)
+                    response = LabelDetectionResponse(
+                        label=class_name,
+                        confidence_threshold=1,
+                        start_time=current_time,
+                        end_time=current_time,
+                    )
+                    class_time_map[class_name].append(response)
+                    logger.info(f"Added {class_name} from {current_time}")
 
         # Release video
         video.release()
         cv2.destroyAllWindows()
 
-        return class_time_map
+        detections = []
+        for class_name, class_time_list in class_time_map.items():
+            detections.extend(class_time_list)
+
+        return sorted(detections, key=lambda x: x.start_time)
 
     def _infer_triton(self, frame: np.ndarray, client):
         """Triton Inference."""
-        results = client.predict(frame, imgsz=[224, 224])[0]
-        logger.info(results)
+        results = client.predict(frame, imgsz=[224, 224], verbose=False)[0]
         return results
