@@ -1,16 +1,25 @@
-"""Chat route."""
+from multiprocessing import Pool
+from os import cpu_count
 
-from fastapi import APIRouter, File
-from fastapi import UploadFile
+from fastapi import APIRouter, File, UploadFile, Depends
+from fastapi import Security, HTTPException
+from fastapi.security import APIKeyHeader
 from loguru import logger
 
 from app.api.helpers.utils import save_and_split_video
 from app.api.responses.base import BaseResponse
 from app.api.responses.visualizer_response import ListLabelDetectionResponse, LabelDetectionResponse
 from app.api.services.visualizer_service import VisualizerService
+from app.core.config import API_KEY
 
+api_key_header = APIKeyHeader(name="X-API-Key")
 router = APIRouter()
 visualizer_service = VisualizerService()
+
+
+def verify_api_key(x_api_key: str = Security(api_key_header)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API Key")
 
 
 @router.post(
@@ -18,7 +27,10 @@ visualizer_service = VisualizerService()
     response_description="Detect label from video file",
     response_model=BaseResponse[ListLabelDetectionResponse],
 )
-async def detect_label_from_video_file(video_file: UploadFile = File(...)):
+async def detect_label_from_video_file(
+    video_file: UploadFile = File(...),
+    verify=Depends(verify_api_key),
+):
     """Detect label from video file."""
     # Check if the video file is valid
     if not video_file.content_type.startswith("video"):

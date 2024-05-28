@@ -22,6 +22,7 @@ APP_PORT: str = config("APP_PORT", cast=str, default="8000")
 PROJECT_NAME: str = config("PROJECT_NAME", default="Video AI Visualiser")
 ALLOWED_HOSTS: list[str] = config("ALLOWED_HOSTS", cast=CommaSeparatedStrings, default="")
 TRITON_SERVER_URL: str = config("TRITON_SERVER_URL", cast=str, default="localhost:8001")
+API_KEY: str = config("API_KEY", cast=str, default="")
 
 # logging configuration
 LOGGING_LEVEL = logging.DEBUG if DEBUG else logging.INFO
