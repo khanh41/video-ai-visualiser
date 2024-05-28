@@ -30,14 +30,21 @@ async def detect_label_from_video_file(video_file: UploadFile = File(...)):
         )
 
     # Split the video into segments using ffmpeg
-    segment_time = 120
+    segment_time = 60
     split_paths = await save_and_split_video(video_file, segment_time=segment_time)
 
     # Detect label from video file
+    with Pool(processes=cpu_count()) as pool:
+        params = [(split_path, segment_time * index) for index, split_path in enumerate(split_paths)]
+        _detections = pool.starmap(visualizer_service.detect_label_from_video, params)
+
     detections: list[LabelDetectionResponse] = []
-    for index, split_path in enumerate(split_paths):
-        detections.extend(visualizer_service.detect_label_from_video(split_path, segment_time * index))
-        logger.info(f"Detected labels: {detections}")
+    for detection in _detections:
+        detections.extend(detection)
+
+    # Sort the detections by start time
+    detections = sorted(detections, key=lambda x: x.start_time)
+    logger.info(f"Detected labels: {detections}")
 
     return BaseResponse(
         success=True,
